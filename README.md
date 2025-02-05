@@ -72,6 +72,7 @@ Optional properties:
 * `sqs.endpoint.url`: Override value for the AWS region specific endpoint.
 * `sqs.message.attributes.enabled`: If true, it gets the Kafka Headers and inserts them as SQS MessageAttributes (only string headers are currently supported). Default is false.
 * `sqs.message.attributes.include.list`: The comma separated list of Header names to be included, if empty it includes all the Headers. Default is the empty string.
+* `value.transform.to.json`: If true, it converts the value to a JSON string before sending it to SQS. Default is false. This is useful when the `value.converter` is set to ProtobufConverter or any other non-JSON or String converter.
 
 ### Sample SQS queue policy
 
