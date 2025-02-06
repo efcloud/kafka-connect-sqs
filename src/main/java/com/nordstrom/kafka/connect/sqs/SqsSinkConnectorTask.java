@@ -24,6 +24,8 @@ import java.util.Map ;
 
 import com.amazonaws.services.sqs.model.MessageAttributeValue;
 import org.apache.kafka.common.errors.RetriableException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nordstrom.kafka.connect.utils.ObjectMapperProvider;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.header.Header;
 import org.apache.kafka.connect.header.Headers;
@@ -37,8 +39,13 @@ import com.nordstrom.kafka.connect.sqs.SqsSinkConnector ;
 public class SqsSinkConnectorTask extends SinkTask {
   private final Logger log = LoggerFactory.getLogger( this.getClass() ) ;
 
-  private SqsClient client ;
-  private SqsSinkConnectorConfig config ;
+  SqsClient client ;
+  SqsSinkConnectorConfig config ;
+
+  // Used to serialize Struct objects to JSON
+  // This is needed when the value.converter is set to Protobuf, Avro or any other non-String format
+  private final ObjectMapper objectMapper = ObjectMapperProvider.getObjectMapper();
+
 
   /*
    * (non-Javadoc)
@@ -87,7 +94,21 @@ public class SqsSinkConnectorTask extends SinkTask {
           record.kafkaOffset() ) ;
       final String key = Facility.isNotNull( record.key() ) ? record.key().toString() : null ;
       final String gid = Facility.isNotNullNorEmpty( key ) ? key : record.topic() ;
-      final String body = Facility.isNotNull( record.value() ) ? record.value().toString() : "" ;
+
+      String body = "";
+      if (Facility.isNotNull(record.value())) {
+        // convert the record value to JSON if the transformToJson is enabled
+        if (config.getTransformToJson()) {
+          try {
+            body = objectMapper.writeValueAsString(record.value());
+          } catch (Exception e) {
+            log.error("Failed to convert record value to JSON", e);
+          }
+        }
+        else {
+          body = record.value().toString();
+        }
+      }
 
       Map<String, MessageAttributeValue> messageAttributes = null;
 

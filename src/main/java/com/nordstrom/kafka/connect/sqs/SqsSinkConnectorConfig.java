@@ -55,7 +55,9 @@ public class SqsSinkConnectorConfig extends SqsConnectorConfig {
       .define(SqsConnectorConfigKeys.CREDENTIALS_PROVIDER_ACCESS_KEY_ID.getValue(), Type.STRING, "", Importance.LOW,
           "AWS Secret Access Key to be used with Config credentials provider.")
       .define(SqsConnectorConfigKeys.CREDENTIALS_PROVIDER_SECRET_ACCESS_KEY.getValue(), Type.PASSWORD, "", Importance.LOW,
-          "AWS Secret Access Key to be used with Config credentials provider");
+          "AWS Secret Access Key to be used with Config credentials provider")
+      .define(SqsConnectorConfigKeys.VALUE_TRANSFORM_TO_JSON.getValue(), Type.BOOLEAN, false, Importance.LOW,
+          "If true, a transformation is applied to the value of the Kafka message to convert it to a JSON string. Default is false.");
 
   public static ConfigDef config() {
     return CONFIG_DEF;
