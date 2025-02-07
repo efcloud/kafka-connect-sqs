@@ -57,7 +57,9 @@ public class SqsSinkConnectorConfig extends SqsConnectorConfig {
       .define(SqsConnectorConfigKeys.CREDENTIALS_PROVIDER_SECRET_ACCESS_KEY.getValue(), Type.PASSWORD, "", Importance.LOW,
           "AWS Secret Access Key to be used with Config credentials provider")
       .define(SqsConnectorConfigKeys.VALUE_TRANSFORM_TO_JSON.getValue(), Type.BOOLEAN, false, Importance.LOW,
-          "If true, a transformation is applied to the value of the Kafka message to convert it to a JSON string. Default is false.");
+          "If true, a transformation is applied to the value of the Kafka message to convert it to a JSON string. Default is false.")
+      .define(SqsConnectorConfigKeys.VALUE_TRANSFORM_TIMESTAMP_FORMAT.getValue(), Type.STRING, "yyyy-MM-dd'T'HH:mm:ss'Z'", Importance.LOW,
+          String.format("When %s is true, Timestamps are transformed into a string using this format. Default is yyyy-MM-dd'T'HH:mm:ss'Z'.", SqsConnectorConfigKeys.VALUE_TRANSFORM_TO_JSON.getValue()));
 
   public static ConfigDef config() {
     return CONFIG_DEF;

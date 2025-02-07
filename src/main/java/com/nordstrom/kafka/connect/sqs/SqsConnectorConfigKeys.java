@@ -30,6 +30,7 @@ public enum SqsConnectorConfigKeys {
   SQS_MESSAGE_ATTRIBUTES_INCLUDE_LIST("sqs.message.attributes.include.list"),
   SQS_MESSAGE_ATTRIBUTE_PARTITION_KEY("sqs.message.attributes.partition.key"),
   VALUE_TRANSFORM_TO_JSON("value.transform.to.json"),
+  VALUE_TRANSFORM_TIMESTAMP_FORMAT("value.transform.timestamp.format"),
 
   // These are not part of the connector configuration proper, but just a convenient
   // place to define the constants.

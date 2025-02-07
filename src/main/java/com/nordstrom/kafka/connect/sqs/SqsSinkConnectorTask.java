@@ -44,7 +44,7 @@ public class SqsSinkConnectorTask extends SinkTask {
 
   // Used to serialize Struct objects to JSON
   // This is needed when the value.converter is set to Protobuf, Avro or any other non-String format
-  private final ObjectMapper objectMapper = ObjectMapperProvider.getObjectMapper();
+  ObjectMapper objectMapper;
 
 
   /*
@@ -69,6 +69,7 @@ public class SqsSinkConnectorTask extends SinkTask {
 
     config = new SqsSinkConnectorConfig( props ) ;
     client = new SqsClient(config) ;
+    objectMapper = ObjectMapperProvider.getObjectMapper(config.getTimestampFormat());
 
     log.info( "task.start:OK, sqs.queue.url={}, topics={}", config.getQueueUrl(), config.getTopics() ) ;
   }

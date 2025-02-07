@@ -7,13 +7,10 @@ import org.apache.kafka.connect.data.Struct;
 public class ObjectMapperProvider {
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
-    static {
+    public static ObjectMapper getObjectMapper(String timestampPattern) {
         SimpleModule module = new SimpleModule();
-        module.addSerializer(Struct.class, new StructSerializer());
+        module.addSerializer(Struct.class, new StructSerializer(timestampPattern));
         objectMapper.registerModule(module);
-    }
-
-    public static ObjectMapper getObjectMapper() {
         return objectMapper;
     }
 }

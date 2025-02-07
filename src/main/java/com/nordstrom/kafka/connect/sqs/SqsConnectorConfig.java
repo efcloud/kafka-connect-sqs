@@ -16,6 +16,7 @@ abstract public class SqsConnectorConfig extends AbstractConfig {
     private final String region;
     private final String endpointUrl;
     private final Boolean transformToJson;
+    private final String timestampFormat;
 
     public SqsConnectorConfig(ConfigDef configDef, Map<?, ?> originals) {
         super(configDef, originals);
@@ -24,6 +25,7 @@ abstract public class SqsConnectorConfig extends AbstractConfig {
         region = getString(SqsConnectorConfigKeys.SQS_REGION.getValue());
         endpointUrl = getString(SqsConnectorConfigKeys.SQS_ENDPOINT_URL.getValue());
         transformToJson = getBoolean(SqsConnectorConfigKeys.VALUE_TRANSFORM_TO_JSON.getValue());
+        timestampFormat = getString(SqsConnectorConfigKeys.VALUE_TRANSFORM_TIMESTAMP_FORMAT.getValue());
     }
 
     public String getQueueUrl() {
@@ -43,6 +45,8 @@ abstract public class SqsConnectorConfig extends AbstractConfig {
     }
 
     public Boolean getTransformToJson() { return transformToJson; }
+
+    public String getTimestampFormat() { return timestampFormat; }
 
     protected static class CredentialsProviderValidator implements ConfigDef.Validator {
         @Override
