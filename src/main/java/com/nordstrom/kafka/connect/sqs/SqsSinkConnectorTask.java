@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map ;
 
 import com.amazonaws.services.sqs.model.MessageAttributeValue;
+import com.nordstrom.kafka.connect.utils.ParseException;
 import org.apache.kafka.common.errors.RetriableException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nordstrom.kafka.connect.utils.ObjectMapperProvider;
@@ -104,6 +105,7 @@ public class SqsSinkConnectorTask extends SinkTask {
             body = objectMapper.writeValueAsString(record.value());
           } catch (Exception e) {
             log.error("Failed to convert record value to JSON", e);
+            throw new ParseException(e.getMessage(), e.getCause());
           }
         }
         else {
