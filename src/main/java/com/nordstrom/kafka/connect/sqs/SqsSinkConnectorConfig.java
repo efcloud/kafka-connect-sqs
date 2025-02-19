@@ -27,7 +27,7 @@ import org.apache.kafka.common.config.ConfigDef.Type;
 public class SqsSinkConnectorConfig extends SqsConnectorConfig {
   private final Boolean messageAttributesEnabled;
   private final List<String> messageAttributesList;
-  private final Boolean transformToJson;
+
   private final String timestampFormat;
 
   private static final ConfigDef CONFIG_DEF = new ConfigDef()
@@ -65,8 +65,6 @@ public class SqsSinkConnectorConfig extends SqsConnectorConfig {
 
   public SqsSinkConnectorConfig(Map<?, ?> originals) {
     super(config(), originals);
-
-    transformToJson = getBoolean(SqsConnectorConfigKeys.VALUE_TRANSFORM_TO_JSON.getValue());
     timestampFormat = getString(SqsConnectorConfigKeys.VALUE_TRANSFORM_TIMESTAMP_FORMAT.getValue());
 
     messageAttributesEnabled = getBoolean(SqsConnectorConfigKeys.SQS_MESSAGE_ATTRIBUTES_ENABLED.getValue());
@@ -84,8 +82,6 @@ public class SqsSinkConnectorConfig extends SqsConnectorConfig {
   public List<String> getMessageAttributesList() {
     return messageAttributesList;
   }
-
-  public Boolean getTransformToJson() { return transformToJson; }
 
   public String getTimestampFormat() { return timestampFormat; }
 

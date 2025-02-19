@@ -150,10 +150,25 @@ public class SqsSourceConnectorTask extends SourceTask {
                 }
             }
 
-            return parseJSON(body, sourcePartition, sourceOffset, topic, key, headers);
+            if (config.getTransformToJson()) {
+                return parseJSON(body, sourcePartition, sourceOffset, topic, key, headers);
+            } else {
+                return new SourceRecord(sourcePartition, sourceOffset, topic, null, Schema.STRING_SCHEMA, key, Schema.STRING_SCHEMA,
+                        body, null, headers);
+            }
+
+
         }).collect(Collectors.toList());
     }
 
+    /**
+     * Parse a JSON string into a Structured SourceRecord. This is specially useful when the `value.converter` is set to other than String, e.g.: ProtobufConverter.
+     * Without this parsing, a converter like ProtobufConvert won't be able to understand the JSON string because it's schema is "String".
+     * This parsing is also trying to convert String datetime to Timestamps, so they will be correctly interpreted by the converters.
+     * Numeric Timestamps can not be automatically converted to Timestamps because they are no different from any other number, SMT transformations can be used for that.
+     *
+     * @return SourceRecord with the proper value schema.
+     */
     static SourceRecord parseJSON(String body, Map<String, String> sourcePartition, Map<String, String> sourceOffset, String topic, String key, ConnectHeaders headers) {
         // Parse JSON string to Map
         ObjectMapper objectMapper = new ObjectMapper();
@@ -235,7 +250,7 @@ public class SqsSourceConnectorTask extends SourceTask {
                 }
                 return Optional.of(java.sql.Timestamp.from(instant));
             } catch (DateTimeParseException e) {
-                // Continue to the next formatter
+                // Not throwing, only returning empty if no formatter could parse the value
             }
         }
         return Optional.empty();

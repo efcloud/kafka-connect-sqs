@@ -36,6 +36,7 @@ Optional properties:
 * `sqs.message.attributes.enabled`: If true, it gets the SQS MessageAttributes and inserts them as Kafka Headers (only string headers are currently supported). Default is false.
 * `sqs.message.attributes.include.list`: The comma separated list of MessageAttribute names to be included, if empty it includes all the Message Attributes. Default is the empty string.
 * `sqs.message.attributes.partition.key`: The name of a single AWS SQS MessageAttribute to use as the partition key. If this is not specified, default to the SQS message ID as the partition key.
+* `value.transform.to.json`: If true, it expects to receive a valid JSON as string, and it will be converted to a proper `Struct` in Kafka Connect. Default is false. This is useful when the `value.converter` is set to ProtobufConverter or any other non-JSON or String converter as the converter will be able to convert the data.
 
 ### Sample IAM policy
 
