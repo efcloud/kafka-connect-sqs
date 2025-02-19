@@ -58,7 +58,9 @@ public class SqsSourceConnectorConfig extends SqsConnectorConfig {
       .define(SqsConnectorConfigKeys.SQS_MESSAGE_ATTRIBUTES_INCLUDE_LIST.getValue(), Type.LIST, "", Importance.LOW,
           "The comma separated list of MessageAttribute names to be included, if empty it includes all the Message Attributes. Default is the empty string.")
       .define(SqsConnectorConfigKeys.SQS_MESSAGE_ATTRIBUTE_PARTITION_KEY.getValue(), Type.STRING, "", Importance.LOW,
-          "The name of a single AWS SQS MessageAttribute to use as the partition key");
+          "The name of a single AWS SQS MessageAttribute to use as the partition key")
+      .define(SqsConnectorConfigKeys.VALUE_TRANSFORM_TO_JSON.getValue(), Type.BOOLEAN, false, Importance.LOW,
+          "If true, it expects SQS messages to be valid JSON and it will parse them to proper Structs. Protobuf, Avro or other value converters can be used when this is set to true. Default is false.");
 
   public static ConfigDef config() {
     return CONFIG_DEF;
