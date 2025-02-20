@@ -10,6 +10,8 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -23,6 +25,38 @@ public class KafkaJsonToStruct {
                 //noinspection unchecked
                 SchemaBuilder nestedSchema = buildSchema((Map<String, Object>) v);
                 schemaBuilder.field(k, nestedSchema.build());
+            } else if (v instanceof List) {
+                List<?> list = (List<?>) v;
+                Schema elementSchema;
+                if (list.isEmpty()) {
+                    elementSchema = Schema.OPTIONAL_STRING_SCHEMA;
+                } else {
+                    Object firstElement = list.get(0);
+                    if (firstElement instanceof Map) {
+                        //noinspection unchecked
+                        elementSchema = buildSchema((Map<String, Object>) firstElement).build();
+                    } else if (firstElement instanceof Integer) {
+                        elementSchema = Schema.OPTIONAL_INT32_SCHEMA;
+                    } else if (firstElement instanceof Long) {
+                        elementSchema = Schema.OPTIONAL_INT64_SCHEMA;
+                    } else if (firstElement instanceof Float) {
+                        elementSchema = Schema.OPTIONAL_FLOAT32_SCHEMA;
+                    } else if (firstElement instanceof Double) {
+                        elementSchema = Schema.OPTIONAL_FLOAT64_SCHEMA;
+                    } else if (firstElement instanceof Boolean) {
+                        elementSchema = Schema.OPTIONAL_BOOLEAN_SCHEMA;
+                    } else if (firstElement instanceof String) {
+                        Optional<java.sql.Timestamp> timestamp = parseTimestamp((String) firstElement);
+                        if (timestamp.isPresent()) {
+                            elementSchema = Timestamp.SCHEMA;
+                        } else {
+                            elementSchema = Schema.OPTIONAL_STRING_SCHEMA;
+                        }
+                    } else {
+                        elementSchema = Schema.OPTIONAL_STRING_SCHEMA;
+                    }
+                }
+                schemaBuilder.field(k, SchemaBuilder.array(elementSchema));
             } else if (v instanceof Integer) {
                 schemaBuilder.field(k, Schema.OPTIONAL_INT32_SCHEMA);
             } else if (v instanceof Long) {
@@ -53,10 +87,30 @@ public class KafkaJsonToStruct {
             Schema fieldSchema = schema.field(k).schema();
             if (v instanceof Map) {
                 // Recursive call for nested object.
+                //noinspection unchecked
                 Struct nestedStruct = buildStruct((Map<String, Object>) v, fieldSchema);
                 struct.put(k, nestedStruct);
+            } else if (v instanceof List) {
+                List<?> list = (List<?>) v;
+                List<Object> newList = new ArrayList<>();
+                // Use the element schema of the array
+                Schema elementSchema = fieldSchema.valueSchema();
+                for (Object elem : list) {
+                    if (elem instanceof Map) {
+                        newList.add(buildStruct((Map<String, Object>) elem, elementSchema));
+                    } else if (elem instanceof String) {
+                        Optional<java.sql.Timestamp> timestamp = parseTimestamp((String) elem);
+                        if (timestamp.isPresent()) {
+                            newList.add(timestamp.get());
+                        } else {
+                            newList.add(elem);
+                        }
+                    } else {
+                        newList.add(elem);
+                    }
+                }
+                struct.put(k, newList);
             } else if (v instanceof String) {
-                // Parse timestamps if possible.
                 Optional<java.sql.Timestamp> timestamp = parseTimestamp((String) v);
                 if (timestamp.isPresent()) {
                     struct.put(k, timestamp.get());
@@ -64,7 +118,6 @@ public class KafkaJsonToStruct {
                     struct.put(k, v);
                 }
             } else {
-                // basic types
                 struct.put(k, v);
             }
         });
@@ -78,7 +131,6 @@ public class KafkaJsonToStruct {
      * @return Optional of java.sql.Timestamp if the value could be parsed, empty otherwise.
      */
     public static Optional<java.sql.Timestamp> parseTimestamp(String value) {
-        // List of supported date-time formatters
         DateTimeFormatter[] formatters = new DateTimeFormatter[]{
                 DateTimeFormatter.ISO_INSTANT,
                 DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.of("UTC"))

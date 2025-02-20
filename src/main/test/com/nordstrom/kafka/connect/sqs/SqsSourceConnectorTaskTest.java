@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -100,13 +101,80 @@ class SqsSourceConnectorTaskTest {
         Struct value = (Struct) result.value();
         assertEquals("value1", value.getString("field1"));
 
-        // Validate that field2 is a Struct.
         Struct field2 = value.getStruct("field2");
         Struct innerField = field2.getStruct("innerField");
 
-        // Validate the contents of innerField.
         assertEquals(1, innerField.getInt32("id"));
         assertEquals("testNested", innerField.getString("name"));
+    }
+
+    @Test
+    void parseJSONListOfStrings() {
+        String body = "{\"field1\":\"value1\",\"field2\":[\"a\",\"b\",\"c\"]}";
+        SourceRecord result = SqsSourceConnectorTask.parseJSON(body, sourcePartition, sourceOffset, topic, key, headers);
+
+        Struct value = (Struct) result.value();
+        assertEquals("value1", value.getString("field1"));
+
+        Object field2Obj = value.get("field2");
+        assertTrue(field2Obj instanceof List);
+
+        List<?> field2List = (List<?>) field2Obj;
+        assertEquals(3, field2List.size());
+        assertEquals("a", field2List.get(0));
+        assertEquals("b", field2List.get(1));
+        assertEquals("c", field2List.get(2));
+    }
+
+    @Test
+    void parseJSONListOfNumbers() {
+        String body = "{\"field1\":\"value1\",\"field2\":[1,2,3]}";
+        SourceRecord result = SqsSourceConnectorTask.parseJSON(body, sourcePartition, sourceOffset, topic, key, headers);
+
+        Struct value = (Struct) result.value();
+        assertEquals("value1", value.getString("field1"));
+
+        Object field2Obj = value.get("field2");
+        assertTrue(field2Obj instanceof List);
+
+        List<?> field2List = (List<?>) field2Obj;
+        assertEquals(3, field2List.size());
+        assertEquals(1, field2List.get(0));
+        assertEquals(2, field2List.get(1));
+        assertEquals(3, field2List.get(2));
+    }
+
+    @Test
+    void parseJSONListOfObjects() {
+        String body = "{\"field1\":\"value1\",\"field2\":[{\"id\":1,\"name\":\"Alice\"},{\"id\":2,\"name\":\"Bob\"}]}";
+        SourceRecord result = SqsSourceConnectorTask.parseJSON(body, sourcePartition, sourceOffset, topic, key, headers);
+        Struct value = (Struct) result.value();
+        assertEquals("value1", value.getString("field1"));
+
+        List<?> list = (List<?>) value.get("field2");
+        assertEquals(2, list.size());
+
+        Struct first = (Struct) list.get(0);
+        Struct second = (Struct) list.get(1);
+        assertEquals(1, first.getInt32("id"));
+        assertEquals("Alice", first.getString("name"));
+        assertEquals(2, second.getInt32("id"));
+        assertEquals("Bob", second.getString("name"));
+    }
+
+    @Test
+    void parseJSONNestedObjectWithList() {
+        String body = "{\"field1\":\"value1\",\"field2\":{\"listField\":[\"a\",\"b\",\"c\"]}}";
+        SourceRecord result = SqsSourceConnectorTask.parseJSON(body, sourcePartition, sourceOffset, topic, key, headers);
+        Struct value = (Struct) result.value();
+        assertEquals("value1", value.getString("field1"));
+
+        Struct field2 = value.getStruct("field2");
+        List<?> list = (List<?>) field2.get("listField");
+        assertEquals(3, list.size());
+        assertEquals("a", list.get(0));
+        assertEquals("b", list.get(1));
+        assertEquals("c", list.get(2));
     }
 
     @Test
