@@ -28,6 +28,7 @@ import com.amazonaws.services.sqs.model.MessageAttributeValue;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nordstrom.kafka.connect.utils.KafkaJsonToStruct;
 import com.nordstrom.kafka.connect.utils.ParseException;
 import com.nordstrom.kafka.connect.utils.StringUtils;
 import org.apache.kafka.connect.data.*;
@@ -181,79 +182,11 @@ public class SqsSourceConnectorTask extends SourceTask {
         }
 
         // Build Schema from Map
-        SchemaBuilder schemaBuilder = SchemaBuilder.struct();
-        jsonMap.forEach((k, v) -> {
-            if (v instanceof Integer) {
-                schemaBuilder.field(k, Schema.OPTIONAL_INT32_SCHEMA);
-            } else if (v instanceof Long) {
-                schemaBuilder.field(k, Schema.OPTIONAL_INT64_SCHEMA);
-            } else if (v instanceof Float) {
-                schemaBuilder.field(k, Schema.OPTIONAL_FLOAT32_SCHEMA);
-            } else if (v instanceof Double) {
-                schemaBuilder.field(k, Schema.OPTIONAL_FLOAT64_SCHEMA);
-            } else if (v instanceof Boolean) {
-                schemaBuilder.field(k, Schema.OPTIONAL_BOOLEAN_SCHEMA);
-            } else if (v instanceof String) {
-                Optional<java.sql.Timestamp> timestamp = parseTimestamp((String) v);
-                if (timestamp.isPresent()) {
-                    schemaBuilder.field(k, Timestamp.SCHEMA);
-                } else {
-                    schemaBuilder.field(k, Schema.OPTIONAL_STRING_SCHEMA);
-                }
-            } else {
-                schemaBuilder.field(k, Schema.OPTIONAL_STRING_SCHEMA);
-            }
-        });
-
+        SchemaBuilder schemaBuilder = KafkaJsonToStruct.buildSchema(jsonMap);
         Schema schema = schemaBuilder.build();
-        Struct struct = new Struct(schema);
-
-        // Populate Struct from Map
-        // Custom types need to be converted to the appropriate type
-        jsonMap.forEach((k, v) -> {
-            if (v instanceof String) {
-                Optional<java.sql.Timestamp> timestamp = parseTimestamp((String) v);
-                if (timestamp.isPresent()) {
-                    struct.put(k, timestamp.get());
-                } else {
-                    struct.put(k, v);
-                }
-            } else {
-                struct.put(k, v);
-            }
-        });
+        Struct struct = KafkaJsonToStruct.buildStruct(jsonMap, schema);
 
         return new SourceRecord(sourcePartition, sourceOffset, topic, null, Schema.STRING_SCHEMA, key, schema, struct, null, headers);
-    }
-
-    /**
-     * Given a String, tries to convert it to one of the defined timestamp formats.
-     *
-     * @param value String to be parsed.
-     * @return Optional of java.sql.Timestamp if the value could be parsed, empty otherwise.
-     */
-    private static Optional<java.sql.Timestamp> parseTimestamp(String value) {
-        // List of supported date-time formatters
-        DateTimeFormatter[] formatters = new DateTimeFormatter[]{
-                DateTimeFormatter.ISO_INSTANT,
-                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.of("UTC"))
-        };
-
-        for (DateTimeFormatter formatter : formatters) {
-            try {
-                Instant instant;
-                if (formatter == DateTimeFormatter.ISO_INSTANT) {
-                    instant = Instant.parse(value);
-                } else {
-                    LocalDateTime localDateTime = LocalDateTime.parse(value, formatter);
-                    instant = localDateTime.atZone(ZoneId.of("UTC")).toInstant();
-                }
-                return Optional.of(java.sql.Timestamp.from(instant));
-            } catch (DateTimeParseException e) {
-                // Not throwing, only returning empty if no formatter could parse the value
-            }
-        }
-        return Optional.empty();
     }
 
 

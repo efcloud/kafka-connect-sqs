@@ -71,6 +71,45 @@ class SqsSourceConnectorTaskTest {
     }
 
     @Test
+    void parseJSONNestedObject() {
+        String body = "{\"field1\":\"value1\",\"field2\":{\"id\":1,\"name\":\"test\"}}";
+        SourceRecord result = SqsSourceConnectorTask.parseJSON(body, sourcePartition, sourceOffset, topic, key, headers);
+
+        Struct value = (Struct) result.value();
+        assertEquals("value1", value.getString("field1"));
+
+        Struct field2 = value.getStruct("field2");
+        assertEquals(1, field2.getInt32("id"), "The 'id' field in field2 should be 1.");
+        assertEquals("test", field2.getString("name"), "The 'name' field in field2 should be 'test'.");
+    }
+
+    @Test
+    void parseJSONDeepNestedObject() {
+        String body = "{"
+                + "\"field1\":\"value1\","
+                + "\"field2\":{"
+                + "    \"innerField\":{"
+                + "        \"id\":1,"
+                + "        \"name\":\"testNested\""
+                + "    }"
+                + "}"
+                + "}";
+
+        SourceRecord result = SqsSourceConnectorTask.parseJSON(body, sourcePartition, sourceOffset, topic, key, headers);
+
+        Struct value = (Struct) result.value();
+        assertEquals("value1", value.getString("field1"));
+
+        // Validate that field2 is a Struct.
+        Struct field2 = value.getStruct("field2");
+        Struct innerField = field2.getStruct("innerField");
+
+        // Validate the contents of innerField.
+        assertEquals(1, innerField.getInt32("id"));
+        assertEquals("testNested", innerField.getString("name"));
+    }
+
+    @Test
     void parseJSONEmptyJson() {
         String body = "{}";
         SourceRecord result = SqsSourceConnectorTask.parseJSON(body, sourcePartition, sourceOffset, topic, key, headers);
