@@ -20,17 +20,15 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-import com.amazonaws.auth.AWSCredentialsProvider;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
-import org.apache.kafka.common.config.ConfigException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class SqsSinkConnectorConfig extends SqsConnectorConfig {
   private final Boolean messageAttributesEnabled;
   private final List<String> messageAttributesList;
+
+  private final String timestampFormat;
 
   private static final ConfigDef CONFIG_DEF = new ConfigDef()
       .define(SqsConnectorConfigKeys.SQS_QUEUE_URL.getValue(), Type.STRING, Importance.HIGH, "URL of the SQS queue to be written to.")
@@ -67,6 +65,7 @@ public class SqsSinkConnectorConfig extends SqsConnectorConfig {
 
   public SqsSinkConnectorConfig(Map<?, ?> originals) {
     super(config(), originals);
+    timestampFormat = getString(SqsConnectorConfigKeys.VALUE_TRANSFORM_TIMESTAMP_FORMAT.getValue());
 
     messageAttributesEnabled = getBoolean(SqsConnectorConfigKeys.SQS_MESSAGE_ATTRIBUTES_ENABLED.getValue());
     if (messageAttributesEnabled) {
@@ -83,5 +82,7 @@ public class SqsSinkConnectorConfig extends SqsConnectorConfig {
   public List<String> getMessageAttributesList() {
     return messageAttributesList;
   }
+
+  public String getTimestampFormat() { return timestampFormat; }
 
 }
