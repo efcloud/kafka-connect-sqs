@@ -3,11 +3,14 @@ package com.nordstrom.kafka.connect.utils;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
+import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.data.Timestamp;
 
 import java.io.IOException;
 import java.text.SimpleDateFormat;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 public class StructSerializer extends JsonSerializer<Struct> {
 
@@ -20,20 +23,20 @@ public class StructSerializer extends JsonSerializer<Struct> {
     }
 
     @Override
-    public void serialize(Struct struct, JsonGenerator gen, SerializerProvider serializers) throws IOException {
-        gen.writeStartObject();
-        struct.schema().fields().forEach(field -> {
-            try {
-                Object value = struct.get(field);
-                // Transform timestamp to defined format
-                if (timestampPattern != null && field.schema().name() != null && field.schema().name().equals(Timestamp.LOGICAL_NAME)) {
-                    value = dateFormat.format(value);
+    public void serialize(Struct struct, JsonGenerator jsonGenerator, SerializerProvider serializerProvider) throws IOException {
+        final Map<String, Object> result = new LinkedHashMap<>(struct.schema().fields().size());
+        for (Field field : struct.schema().fields()) {
+            Object value = struct.get(field);
+            // Transform timestamp to defined format
+            if (timestampPattern != null && field.schema().name() != null && field.schema().name().equals(Timestamp.LOGICAL_NAME)) {
+                if (value instanceof java.util.Date) {
+                    value = dateFormat.format((java.util.Date) value);
+                } else {
+                    System.err.println("Field " + field.name() + " is expected to be a Date but is " + (value != null ? value.getClass().getName() : "null"));
                 }
-                gen.writeObjectField(field.name(), value);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
             }
-        });
-        gen.writeEndObject();
+            result.put(field.name(), value);
+        }
+        jsonGenerator.writeObject(result);
     }
 }
