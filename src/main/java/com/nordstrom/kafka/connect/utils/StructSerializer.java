@@ -30,8 +30,10 @@ public class StructSerializer extends JsonSerializer<Struct> {
                     value = dateFormat.format(value);
                 }
                 gen.writeObjectField(field.name(), value);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
+            } catch (Exception e) {
+                throw new ParseException("Failed to process field " + field.name() +
+                        ", in Schema type: " + field.schema().name() +
+                        " with value " + struct.get(field).toString(), e);
             }
         });
         gen.writeEndObject();
