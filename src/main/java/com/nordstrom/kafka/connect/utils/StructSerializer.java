@@ -27,11 +27,20 @@ public class StructSerializer extends JsonSerializer<Struct> {
                 Object value = struct.get(field);
                 // Transform timestamp to defined format
                 if (timestampPattern != null && field.schema().name() != null && field.schema().name().equals(Timestamp.LOGICAL_NAME)) {
-                    value = dateFormat.format(value);
+                    if (value instanceof java.util.Date) {
+                        value = dateFormat.format((java.util.Date) value);
+                    } else {
+                        throw new IllegalArgumentException("Unsupported timestamp type: " + value.getClass());
+                    }
                 }
                 gen.writeObjectField(field.name(), value);
             } catch (IOException e) {
-                throw new RuntimeException(e);
+                throw new ParseException("Failed to write field " + field.name() +
+                        ", in Schema type: " + field.schema().name(), e);
+            } catch (IllegalArgumentException e) {
+                throw new ParseException("Failed to parse Timestamp field " + field.name() +
+                        ", in Schema type: " + field.schema().name() +
+                        " with value " + struct.get(field).toString(), e);
             }
         });
         gen.writeEndObject();
