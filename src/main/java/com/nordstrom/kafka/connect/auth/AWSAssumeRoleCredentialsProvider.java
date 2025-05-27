@@ -26,6 +26,9 @@ public class AWSAssumeRoleCredentialsProvider implements AWSCredentialsProvider,
   private String sessionName;
   private String region;
   private String endpointUrl;
+
+  private AWSCredentialsProvider provider;
+
   @Override
   public void configure(Map<String, ?> map) {
     externalId = getOptionalField(map, EXTERNAL_ID_CONFIG);
@@ -33,29 +36,29 @@ public class AWSAssumeRoleCredentialsProvider implements AWSCredentialsProvider,
     sessionName = getRequiredField(map, SESSION_NAME_CONFIG);
     region = getRequiredField(map, SqsConnectorConfigKeys.SQS_REGION.getValue());
     endpointUrl = getOptionalField(map, SqsConnectorConfigKeys.SQS_ENDPOINT_URL.getValue());
-  }
 
-  @Override
-  public AWSCredentials getCredentials() {
     AWSSecurityTokenServiceClientBuilder clientBuilder = null;
     if(StringUtils.isBlank(endpointUrl))
       clientBuilder = AWSSecurityTokenServiceClientBuilder.standard()
-            .withRegion(region);
+              .withRegion(region);
     else
       clientBuilder = AWSSecurityTokenServiceClientBuilder.standard()
               .withEndpointConfiguration(new EndpointConfiguration(endpointUrl, region));
 
-    AWSCredentialsProvider provider = new STSAssumeRoleSessionCredentialsProvider.Builder(roleArn, sessionName)
-        .withStsClient(clientBuilder.build())
-        .withExternalId(externalId)
-        .build();
+    provider = new STSAssumeRoleSessionCredentialsProvider.Builder(roleArn, sessionName)
+            .withStsClient(clientBuilder.build())
+            .withExternalId(externalId)
+            .build();
+  }
 
+  @Override
+  public AWSCredentials getCredentials() {
     return provider.getCredentials();
   }
 
   @Override
   public void refresh() {
-    //Nothing to do really, since we are assuming a role.
+    provider.refresh();
   }
 
   private String getOptionalField(final Map<String, ?> map, final String fieldName) {
