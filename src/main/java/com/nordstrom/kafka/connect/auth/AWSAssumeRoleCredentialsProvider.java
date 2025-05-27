@@ -1,22 +1,19 @@
 package com.nordstrom.kafka.connect.auth;
 
-import com.amazonaws.auth.AWSCredentials;
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
-import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
-import com.amazonaws.services.securitytoken.AWSSecurityTokenServiceClientBuilder;
+import software.amazon.awssdk.auth.credentials.AwsCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.services.sts.StsClient;
+import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
+import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
 import com.nordstrom.kafka.connect.sqs.SqsConnectorConfigKeys;
 import com.nordstrom.kafka.connect.utils.StringUtils;
 import org.apache.kafka.common.Configurable;
-//import org.slf4j.Logger;
-//import org.slf4j.LoggerFactory;
 
+import java.net.URI;
 import java.util.Map;
 
-public class AWSAssumeRoleCredentialsProvider implements AWSCredentialsProvider, Configurable {
-  //NB: uncomment slf4j imports and field declaration to enable logging.
-//  private static final Logger log = LoggerFactory.getLogger(AWSAssumeRoleCredentialsProvider.class);
-
+public class AWSAssumeRoleCredentialsProvider implements AwsCredentialsProvider, Configurable {
   public static final String EXTERNAL_ID_CONFIG = "external.id";
   public static final String ROLE_ARN_CONFIG = "role.arn";
   public static final String SESSION_NAME_CONFIG = "session.name";
@@ -26,6 +23,8 @@ public class AWSAssumeRoleCredentialsProvider implements AWSCredentialsProvider,
   private String sessionName;
   private String region;
   private String endpointUrl;
+  private StsAssumeRoleCredentialsProvider credentialsProvider;
+
   @Override
   public void configure(Map<String, ?> map) {
     externalId = getOptionalField(map, EXTERNAL_ID_CONFIG);
@@ -33,30 +32,38 @@ public class AWSAssumeRoleCredentialsProvider implements AWSCredentialsProvider,
     sessionName = getRequiredField(map, SESSION_NAME_CONFIG);
     region = getRequiredField(map, SqsConnectorConfigKeys.SQS_REGION.getValue());
     endpointUrl = getOptionalField(map, SqsConnectorConfigKeys.SQS_ENDPOINT_URL.getValue());
+
+    StsClient stsClient = StringUtils.isBlank(endpointUrl)
+            ? StsClient.builder().region(Region.of(region)).build()
+            : StsClient.builder()
+            .endpointOverride(URI.create(endpointUrl))
+            .region(Region.of(region))
+            .build();
+
+    AssumeRoleRequest.Builder roleRequestBuilder = AssumeRoleRequest.builder()
+            .roleArn(roleArn)
+            .roleSessionName(sessionName);
+
+    if (externalId != null) {
+      roleRequestBuilder.externalId(externalId);
+    }
+
+    credentialsProvider = StsAssumeRoleCredentialsProvider.builder()
+            .stsClient(stsClient)
+            .refreshRequest(roleRequestBuilder.build())
+            .build();
   }
 
   @Override
-  public AWSCredentials getCredentials() {
-    AWSSecurityTokenServiceClientBuilder clientBuilder = null;
-    if(StringUtils.isBlank(endpointUrl))
-      clientBuilder = AWSSecurityTokenServiceClientBuilder.standard()
-            .withRegion(region);
-    else
-      clientBuilder = AWSSecurityTokenServiceClientBuilder.standard()
-              .withEndpointConfiguration(new EndpointConfiguration(endpointUrl, region));
-
-    AWSCredentialsProvider provider = new STSAssumeRoleSessionCredentialsProvider.Builder(roleArn, sessionName)
-        .withStsClient(clientBuilder.build())
-        .withExternalId(externalId)
-        .build();
-
-    return provider.getCredentials();
+  public AwsCredentials resolveCredentials() {
+    return credentialsProvider.resolveCredentials();
   }
 
-  @Override
-  public void refresh() {
-    //Nothing to do really, since we are assuming a role.
-  }
+
+//  @Override
+//  public void refresh() {
+//    //Nothing to do really, since we are assuming a role.
+//  }
 
   private String getOptionalField(final Map<String, ?> map, final String fieldName) {
     final Object field = map.get(fieldName);

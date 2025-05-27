@@ -1,13 +1,13 @@
 package com.nordstrom.kafka.connect.auth;
 
-import com.amazonaws.auth.AWSCredentials;
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.auth.BasicAWSCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import org.apache.kafka.common.Configurable;
 
 import java.util.Map;
 
-public class AWSUserCredentialsProvider implements AWSCredentialsProvider, Configurable {
+public class AWSUserCredentialsProvider implements AwsCredentialsProvider, Configurable {
     private static final String AWS_ACCESS_KEY_ID = "accessKeyId";
     private static final String AWS_SECRET_ACCESS_KEY = "secretKey";
 
@@ -15,18 +15,16 @@ public class AWSUserCredentialsProvider implements AWSCredentialsProvider, Confi
     private String awsSecretKey;
 
     @Override
-    public AWSCredentials getCredentials() {
-        return new BasicAWSCredentials(awsAccessKeyId, awsSecretKey);
+    public AwsCredentials resolveCredentials() {
+        return AwsBasicCredentials.create(awsAccessKeyId, awsSecretKey);
     }
-
-    @Override
-    public void refresh() { }
 
     @Override
     public void configure(Map<String, ?> map) {
         awsAccessKeyId = getRequiredField(map, AWS_ACCESS_KEY_ID);
         awsSecretKey = getRequiredField(map, AWS_SECRET_ACCESS_KEY);
     }
+
 
     private String getRequiredField(final Map<String, ?> map, final String fieldName) {
         final Object field = map.get(fieldName);

@@ -1,12 +1,12 @@
 /*
  * Copyright 2019 Nordstrom, Inc.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -22,7 +22,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map ;
 
-import com.amazonaws.services.sqs.model.MessageAttributeValue;
+import software.amazon.awssdk.services.sqs.model.MessageAttributeValue;
 import com.nordstrom.kafka.connect.utils.ParseException;
 import org.apache.kafka.common.errors.RetriableException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -35,12 +35,10 @@ import org.apache.kafka.connect.sink.SinkTask ;
 import org.slf4j.Logger ;
 import org.slf4j.LoggerFactory ;
 
-import com.nordstrom.kafka.connect.sqs.SqsSinkConnector ;
-
 public class SqsSinkConnectorTask extends SinkTask {
   private final Logger log = LoggerFactory.getLogger( this.getClass() ) ;
 
-  SqsClient client ;
+  SQSClient client ;
   SqsSinkConnectorConfig config ;
 
   // Used to serialize Struct objects to JSON
@@ -50,7 +48,7 @@ public class SqsSinkConnectorTask extends SinkTask {
 
   /*
    * (non-Javadoc)
-   * 
+   *
    * @see org.apache.kafka.connect.connector.Task#version()
    */
   @Override
@@ -60,7 +58,7 @@ public class SqsSinkConnectorTask extends SinkTask {
 
   /*
    * (non-Javadoc)
-   * 
+   *
    * @see org.apache.kafka.connect.sink.SinkTask#start(java.util.Map)
    */
   @Override
@@ -69,7 +67,7 @@ public class SqsSinkConnectorTask extends SinkTask {
     Guard.verifyNotNull( props, "Task properties" ) ;
 
     config = new SqsSinkConnectorConfig( props ) ;
-    client = new SqsClient(config) ;
+    client = new SQSClient(config) ;
     objectMapper = ObjectMapperProvider.getObjectMapper(config.getTimestampFormat());
 
     log.info( "task.start:OK, sqs.queue.url={}, topics={}", config.getQueueUrl(), config.getTopics() ) ;
@@ -77,7 +75,7 @@ public class SqsSinkConnectorTask extends SinkTask {
 
   /*
    * (non-Javadoc)
-   * 
+   *
    * @see org.apache.kafka.connect.sink.SinkTask#put(java.util.Collection)
    */
   @Override
@@ -121,13 +119,14 @@ public class SqsSinkConnectorTask extends SinkTask {
         List<String> attributesList = config.getMessageAttributesList();
         boolean allNamesEnabled = attributesList.isEmpty();
         for(Header header: headers) {
-          if(allNamesEnabled || attributesList.contains(header.key())) {
-            if(header.schema().equals(Schema.STRING_SCHEMA)) {
-              messageAttributes.put(header.key(), new MessageAttributeValue()
-                .withDataType("String")
-                .withStringValue((String)header.value()));
+            if(allNamesEnabled || attributesList.contains(header.key())) {
+                if(header.schema().equals(Schema.STRING_SCHEMA)) {
+                    messageAttributes.put(header.key(), MessageAttributeValue.builder()
+                        .dataType("String")
+                        .stringValue((String)header.value())
+                        .build());
+                }
             }
-          }
         }
       }
 
@@ -150,7 +149,7 @@ public class SqsSinkConnectorTask extends SinkTask {
 
   /*
    * (non-Javadoc)
-   * 
+   *
    * @see org.apache.kafka.connect.sink.SinkTask#stop()
    */
   @Override
@@ -161,7 +160,7 @@ public class SqsSinkConnectorTask extends SinkTask {
   /**
    * Test that we have both the task configuration and SQS client properly
    * initialized.
-   * 
+   *
    * @return true if task is in a valid state.
    */
   private boolean isValidState() {

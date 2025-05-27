@@ -1,6 +1,6 @@
 package com.nordstrom.kafka.connect.sqs;
 
-import com.amazonaws.auth.AWSCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigException;
@@ -41,23 +41,25 @@ abstract public class SqsConnectorConfig extends AbstractConfig {
 
     public Boolean getTransformToJson() { return transformToJson; }
 
+    // Update the validator
     protected static class CredentialsProviderValidator implements ConfigDef.Validator {
         @Override
         public void ensureValid(String name, Object provider) {
             if (provider instanceof Class
-                    && AWSCredentialsProvider.class.isAssignableFrom((Class<?>) provider)) {
+                    && AwsCredentialsProvider.class.isAssignableFrom((Class<?>) provider)) {
                 return;
             }
             throw new ConfigException(
                     name,
                     provider,
-                    "Class must extend: " + AWSCredentialsProvider.class
+                    "Class must extend: " + AwsCredentialsProvider.class
             );
         }
 
         @Override
         public String toString() {
-            return "Any class implementing: " + AWSCredentialsProvider.class;
+            return "Any class implementing: " + AwsCredentialsProvider.class;
         }
     }
+
 }
