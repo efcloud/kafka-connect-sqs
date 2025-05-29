@@ -38,7 +38,7 @@ import org.slf4j.LoggerFactory ;
 public class SqsSinkConnectorTask extends SinkTask {
   private final Logger log = LoggerFactory.getLogger( this.getClass() ) ;
 
-  SQSClient client ;
+  SqsClient client ;
   SqsSinkConnectorConfig config ;
 
   // Used to serialize Struct objects to JSON
@@ -67,7 +67,7 @@ public class SqsSinkConnectorTask extends SinkTask {
     Guard.verifyNotNull( props, "Task properties" ) ;
 
     config = new SqsSinkConnectorConfig( props ) ;
-    client = new SQSClient(config) ;
+    client = new SqsClient(config) ;
     objectMapper = ObjectMapperProvider.getObjectMapper(config.getTimestampFormat());
 
     log.info( "task.start:OK, sqs.queue.url={}, topics={}", config.getQueueUrl(), config.getTopics() ) ;

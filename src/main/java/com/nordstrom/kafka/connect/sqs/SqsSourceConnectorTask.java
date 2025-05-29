@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
 public class SqsSourceConnectorTask extends SourceTask {
     private final Logger log = LoggerFactory.getLogger(this.getClass());
 
-    private SQSClient client;
+    private SqsClient client;
     private SqsSourceConnectorConfig config;
 
     @Override
@@ -40,7 +40,7 @@ public class SqsSourceConnectorTask extends SourceTask {
         Guard.verifyNotNull(props, "Task properties");
 
         config = new SqsSourceConnectorConfig(props);
-        client = new SQSClient(config);
+        client = new SqsClient(config);
 
         log.info("task.start.OK, sqs.queue.url={}, topics={}", config.getQueueUrl(), config.getTopics());
     }

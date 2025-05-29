@@ -3,19 +3,18 @@ package com.nordstrom.kafka.connect.sqs;
 import java.util.List;
 import java.util.Map;
 import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.sqs.SqsClient;
 import software.amazon.awssdk.services.sqs.model.*;
 import software.amazon.awssdk.services.sts.StsClient;
 import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class SQSClient {
+public class SqsClient {
   private final Logger log = LoggerFactory.getLogger(this.getClass());
-    private final SqsClient client;
+    private final software.amazon.awssdk.services.sqs.SqsClient client;
 
-  public SQSClient(SqsConnectorConfig config) {
-    client = SqsClient.builder()
+  public SqsClient(SqsConnectorConfig config) {
+    client = software.amazon.awssdk.services.sqs.SqsClient.builder()
             .region(Region.of(config.getRegion()))
             .credentialsProvider(
                     StsAssumeRoleCredentialsProvider.builder()
