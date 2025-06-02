@@ -1,3 +1,19 @@
+/*
+ * Copyright 2019 Nordstrom, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package com.nordstrom.kafka.connect.sqs;
 
 import java.util.List;
@@ -27,6 +43,12 @@ public class SqsClient {
             .build();
   }
 
+  /**
+   * Delete a message from the SQS queue.
+   *
+   * @param url           SQS queue url.
+   * @param receiptHandle Message receipt handle of message to delete.
+   */
   public void delete(final String url, final String receiptHandle) {
     Guard.verifyValidUrl(url);
     Guard.verifyNotNullOrEmpty(receiptHandle, "receiptHandle");
@@ -40,8 +62,17 @@ public class SqsClient {
     log.debug(".delete:receipt-handle={}, rc={}", receiptHandle, result.sdkHttpResponse().statusCode());
   }
 
-  public List<Message> receive(final String url, final int maxMessages, final int waitTimeSeconds,
-                               final Boolean messageAttributesEnabled, final List<String> messageAttributesList) {
+  /**
+   * Receive messages from the SQS queue.
+   *
+   * @param url             SQS queue url.
+   * @param maxMessages     Maximum number of messages to receive for this call.
+   * @param waitTimeSeconds Time to wait, in seconds, for messages to arrive.
+   * @param messageAttributesEnabled Whether to collect message attributes.
+   * @param messageAttributesList Which message attributes to collect; if empty, all attributes are collected.
+   * @return Collection of messages received.
+   */
+  public List<Message> receive(final String url, final int maxMessages, final int waitTimeSeconds, final Boolean messageAttributesEnabled, final List<String> messageAttributesList) {
     log.debug(".receive:queue={}, max={}, wait={}", url, maxMessages, waitTimeSeconds);
 
     Guard.verifyValidUrl(url);
@@ -71,8 +102,17 @@ public class SqsClient {
     return result.messages();
   }
 
-  public String send(final String url, final String body, final String groupId,
-                     final String messageId, final Map<String, MessageAttributeValue> messageAttributes) {
+  /**
+   * Send a message to an SQS queue.
+   *
+   * @param url       SQS queue url.
+   * @param body      The message to send.
+   * @param groupId   Optional group identifier (fifo queues only).
+   * @param messageId Optional message identifier (fifo queues only).
+   * @param messageAttributes The message attributes to send.
+   * @return Sequence number when FIFO; otherwise, the message identifier
+   */
+  public String send(final String url, final String body, final String groupId, final String messageId, final Map<String, MessageAttributeValue> messageAttributes) {
     log.debug(".send: queue={}, gid={}, mid={}", url, groupId, messageId);
 
     Guard.verifyValidUrl(url);
@@ -108,6 +148,11 @@ public class SqsClient {
       return url.endsWith(AWS_FIFO_SUFFIX);
   }
 
+  /**
+   * Test that we have properly initialized the AWS SQS client.
+   *
+   * @return true if client is in a valid state.
+   */
   private boolean isValidState() {
     return Facility.isNotNull(client);
   }

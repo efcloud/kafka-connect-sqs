@@ -1,3 +1,19 @@
+/*
+ * Copyright 2019 Nordstrom, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package com.nordstrom.kafka.connect.sqs;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -29,11 +45,21 @@ public class SqsSourceConnectorTask extends SourceTask {
     private SqsClient client;
     private SqsSourceConnectorConfig config;
 
+    /*
+     * (non-Javadoc)
+     *
+     * @see org.apache.kafka.connect.connector.Task#version()
+     */
     @Override
     public String version() {
         return About.CURRENT_VERSION;
     }
 
+    /*
+     * (non-Javadoc)
+     *
+     * @see org.apache.kafka.connect.source.SourceTask#start(java.util.Map)
+     */
     @Override
     public void start(Map<String, String> props) {
         log.info("task.start");
@@ -70,6 +96,11 @@ public class SqsSourceConnectorTask extends SourceTask {
         return messageId;
     }
 
+    /*
+     * (non-Javadoc)
+     *
+     * @see org.apache.kafka.connect.source.SourceTask#poll()
+     */
     @Override
     public List<SourceRecord> poll() throws InterruptedException {
         log.debug(".poll:valid-state={}", isValidState());
@@ -142,77 +173,56 @@ public class SqsSourceConnectorTask extends SourceTask {
         }).collect(Collectors.toList());
     }
 
+    /**
+     * Parse a JSON string into a Structured SourceRecord. This is specially useful when the `value.converter` is set to other than String, e.g.: ProtobufConverter.
+     * Without this parsing, a converter like ProtobufConvert won't be able to understand the JSON string because its schema is "String".
+     * This parsing is also trying to convert String datetime to Timestamps, so they will be correctly interpreted by the converters.
+     * Numeric Timestamps cannot be automatically converted to Timestamps because they are no different from any other number, SMT transformations can be used for that.
+     *
+     * @return SourceRecord with the proper value schema.
+     */
+    static SourceRecord parseJSON(String body, Map<String, String> sourcePartition, Map<String, String> sourceOffset, String topic, String key, ConnectHeaders headers) {
+        // Parse JSON string to Map
+        ObjectMapper objectMapper = new ObjectMapper();
+        Map<String, Object> jsonMap;
+        try {
+            jsonMap = objectMapper.readValue(body, new TypeReference<Map<String, Object>>() {
+            });
+        } catch (JsonProcessingException e) {
+            throw new ParseException("Failed to parse JSON from SQS", e);
+        }
+
+        // Build Schema from Map
+        SchemaBuilder schemaBuilder = KafkaJsonToStruct.buildSchema(jsonMap);
+        Schema schema = schemaBuilder.build();
+        Struct struct = KafkaJsonToStruct.buildStruct(jsonMap, schema);
+
+        return new SourceRecord(sourcePartition, sourceOffset, topic, null, Schema.STRING_SCHEMA, key, schema, struct, null, headers);
+    }
+
+
+    /* (non-Javadoc)
+     * @see org.apache.kafka.connect.source.SourceTask#commitRecord(org.apache.kafka.connect.source.SourceRecord)
+     */
     @Override
     public void commitRecord(SourceRecord record) throws InterruptedException {
         Guard.verifyNotNull(record, "record");
-        final String receipt = record.sourceOffset()
-                .get(SqsConnectorConfigKeys.SQS_MESSAGE_RECEIPT_HANDLE.getValue())
+        final String receipt = record.sourceOffset().get(SqsConnectorConfigKeys.SQS_MESSAGE_RECEIPT_HANDLE.getValue())
                 .toString();
         log.debug(".commit-record:url={}, receipt-handle={}", config.getQueueUrl(), receipt);
         client.delete(config.getQueueUrl(), receipt);
         super.commitRecord(record);
     }
 
+    /*
+     * (non-Javadoc)
+     *
+     * @see org.apache.kafka.connect.source.SourceTask#stop()
+     */
     @Override
     public void stop() {
         log.info("task.stop:OK");
     }
-
-    private boolean isValidState() {
-        return null != config && null != client;
-    }
-
-    static SourceRecord parseJSON(String body, Map<String, String> sourcePartition,
-                                  Map<String, String> sourceOffset, String topic, String key, ConnectHeaders headers) {
-        ObjectMapper objectMapper = new ObjectMapper();
-        Map<String, Object> jsonMap;
-        try {
-            jsonMap = objectMapper.readValue(body, new TypeReference<Map<String, Object>>() {});
-        } catch (JsonProcessingException e) {
-            throw new ParseException("Failed to parse JSON from SQS", e);
-        }
-
-        SchemaBuilder schemaBuilder = KafkaJsonToStruct.buildSchema(jsonMap);
-        Schema schema = schemaBuilder.build();
-        Struct struct = KafkaJsonToStruct.buildStruct(jsonMap, schema);
-
-        return new SourceRecord(
-                sourcePartition,
-                sourceOffset,
-                topic,
-                null,
-                Schema.STRING_SCHEMA,
-                key,
-                schema,
-                struct,
-                null,
-                headers);
-    }
-
-
-
-    /* (non-Javadoc)
-     * @see org.apache.kafka.connect.source.SourceTask#commitRecord(org.apache.kafka.connect.source.SourceRecord)
-     */
-//    @Override
-//    public void commitRecord(SourceRecord record) throws InterruptedException {
-//        Guard.verifyNotNull(record, "record");
-//        final String receipt = record.sourceOffset().get(SqsConnectorConfigKeys.SQS_MESSAGE_RECEIPT_HANDLE.getValue())
-//                .toString();
-//        log.debug(".commit-record:url={}, receipt-handle={}", config.getQueueUrl(), receipt);
-//        client.delete(config.getQueueUrl(), receipt);
-//        super.commitRecord(record);
-//    }
-//
-//    /*
-//     * (non-Javadoc)
-//     *
-//     * @see org.apache.kafka.connect.source.SourceTask#stop()
-//     */
-//    @Override
-//    public void stop() {
-//        log.info("task.stop:OK");
-//    }
 
     /**
      * Test that we have both the task configuration and SQS client properly
@@ -220,8 +230,8 @@ public class SqsSourceConnectorTask extends SourceTask {
      *
      * @return true if task is in a valid state.
      */
-//    private boolean isValidState() {
-//        return null != config && null != client;
-//    }
+    private boolean isValidState() {
+        return null != config && null != client;
+    }
 
 }
