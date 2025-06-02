@@ -16,9 +16,17 @@
 
 package com.nordstrom.kafka.connect.sqs;
 
+import java.net.URI;
 import java.util.List;
 import java.util.Map;
+
+import org.apache.kafka.common.Configurable;
+import org.apache.kafka.connect.errors.ConnectException;
+
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.endpoints.EndpointProvider;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.sqs.endpoints.SqsEndpointProvider;
 import software.amazon.awssdk.services.sqs.model.*;
 import software.amazon.awssdk.services.sts.StsClient;
 import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
@@ -30,16 +38,21 @@ public class SqsClient {
     private final software.amazon.awssdk.services.sqs.SqsClient client;
 
   public SqsClient(SqsConnectorConfig config) {
+    Map<String, Object> credentialProviderConfigs = config.originalsWithPrefix(
+            SqsConnectorConfigKeys.CREDENTIALS_PROVIDER_CONFIG_PREFIX.getValue());
+    credentialProviderConfigs.put(SqsConnectorConfigKeys.SQS_REGION.getValue(), config.getRegion());
+    AwsCredentialsProvider provider = null;
+
+    try {
+      provider = getCredentialsProvider(credentialProviderConfigs);
+    } catch ( Exception e ) {
+      log.error("Problem initializing provider", e);
+    }
+
     client = software.amazon.awssdk.services.sqs.SqsClient.builder()
             .region(Region.of(config.getRegion()))
-            .credentialsProvider(
-                    StsAssumeRoleCredentialsProvider.builder()
-                            .refreshRequest(b -> b
-                                    .roleArn("")
-                                    .roleSessionName("")
-                                    .durationSeconds(900))
-                            .stsClient(StsClient.create())
-                            .build())
+            .endpointOverride(URI.create(config.getEndpointUrl()))
+            .credentialsProvider(provider)
             .build();
   }
 
@@ -158,35 +171,30 @@ public class SqsClient {
   }
 
 
-//  @SuppressWarnings("unchecked")
-//  public AWSCredentialsProvider getCredentialsProvider(Map<String, ?> configs) {
-//
-//    try {
-//      Object providerField = configs.get("class");
-//      String providerClass = SqsConnectorConfigKeys.CREDENTIALS_PROVIDER_CLASS_DEFAULT.getValue();
-//      if (null != providerField) {
-//        providerClass = providerField.toString();
-//      }
-//      AWSCredentialsProvider provider = ((Class<? extends AWSCredentialsProvider>)
-//              getClass(providerClass)).newInstance();
-//
-//      if (provider instanceof Configurable) {
-////        Map<String, Object> configs = originalsWithPrefix(CREDENTIALS_PROVIDER_CONFIG_PREFIX);
-////        configs.remove(CREDENTIALS_PROVIDER_CLASS_CONFIG.substring(
-////            CREDENTIALS_PROVIDER_CONFIG_PREFIX.length(),
-////            CREDENTIALS_PROVIDER_CLASS_CONFIG.length()
-////        ));
-//        ((Configurable) provider).configure(configs);
-//      }
-//
-//      return provider;
-//    } catch (IllegalAccessException | InstantiationException e) {
-//      throw new ConnectException(
-//              "Invalid class for: " + SqsConnectorConfigKeys.CREDENTIALS_PROVIDER_CLASS_CONFIG,
-//              e
-//      );
-//    }
-//  }
+  @SuppressWarnings("unchecked")
+  public AwsCredentialsProvider getCredentialsProvider(Map<String, ?> configs) {
+
+    try {
+      Object providerField = configs.get("class");
+      String providerClass = SqsConnectorConfigKeys.CREDENTIALS_PROVIDER_CLASS_DEFAULT.getValue();
+      if (null != providerField) {
+        providerClass = providerField.toString();
+      }
+      AwsCredentialsProvider provider = ((Class<? extends AwsCredentialsProvider>)
+              getClass(providerClass)).newInstance();
+
+      if (provider instanceof Configurable) {
+        ((Configurable) provider).configure(configs);
+      }
+
+      return provider;
+    } catch (IllegalAccessException | InstantiationException e) {
+      throw new ConnectException(
+              "Invalid class for: " + SqsConnectorConfigKeys.CREDENTIALS_PROVIDER_CLASS_CONFIG,
+              e
+      );
+    }
+  }
 
   public Class<?> getClass(String className) {
     log.warn(".get-class:class={}", className);

@@ -42,15 +42,16 @@ public class AWSAssumeRoleCredentialsProvider implements AwsCredentialsProvider,
 
     AssumeRoleRequest.Builder roleRequestBuilder = AssumeRoleRequest.builder()
             .roleArn(roleArn)
-            .roleSessionName(sessionName);
+            .roleSessionName(sessionName)
+            .durationSeconds(900);
 
     if (externalId != null) {
       roleRequestBuilder.externalId(externalId);
     }
 
     credentialsProvider = StsAssumeRoleCredentialsProvider.builder()
-            .stsClient(stsClient)
             .refreshRequest(roleRequestBuilder.build())
+            .stsClient(stsClient)
             .build();
   }
 
@@ -58,12 +59,6 @@ public class AWSAssumeRoleCredentialsProvider implements AwsCredentialsProvider,
   public AwsCredentials resolveCredentials() {
     return credentialsProvider.resolveCredentials();
   }
-
-
-//  @Override
-//  public void refresh() {
-//    //Nothing to do really, since we are assuming a role.
-//  }
 
   private String getOptionalField(final Map<String, ?> map, final String fieldName) {
     final Object field = map.get(fieldName);
