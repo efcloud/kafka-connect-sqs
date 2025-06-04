@@ -16,6 +16,7 @@
 
 package com.nordstrom.kafka.connect.sqs;
 
+import java.lang.reflect.InvocationTargetException;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
@@ -170,7 +171,6 @@ public class SqsClient {
     return Facility.isNotNull(client);
   }
 
-
   @SuppressWarnings("unchecked")
   public AwsCredentialsProvider getCredentialsProvider(Map<String, ?> configs) {
 
@@ -181,7 +181,7 @@ public class SqsClient {
         providerClass = providerField.toString();
       }
       AwsCredentialsProvider provider = ((Class<? extends AwsCredentialsProvider>)
-              getClass(providerClass)).newInstance();
+              getClass(providerClass)).getDeclaredConstructor().newInstance();
 
       if (provider instanceof Configurable) {
         ((Configurable) provider).configure(configs);
@@ -193,6 +193,8 @@ public class SqsClient {
               "Invalid class for: " + SqsConnectorConfigKeys.CREDENTIALS_PROVIDER_CLASS_CONFIG,
               e
       );
+    } catch (InvocationTargetException | NoSuchMethodException e) {
+        throw new RuntimeException(e);
     }
   }
 
