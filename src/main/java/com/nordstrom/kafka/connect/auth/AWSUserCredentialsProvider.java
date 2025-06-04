@@ -14,9 +14,20 @@ public class AWSUserCredentialsProvider implements AwsCredentialsProvider, Confi
     private String awsAccessKeyId;
     private String awsSecretKey;
 
+    private volatile AwsCredentials cachedCredentials;
+
     @Override
     public AwsCredentials resolveCredentials() {
-        return AwsBasicCredentials.create(awsAccessKeyId, awsSecretKey);
+        if (awsAccessKeyId == null || awsSecretKey == null) {
+            throw new IllegalStateException("AWSUserCredentialsProvider has not been configured – call configure() " +
+                    "first. AWS Access Key ID and Secret Key must be set. ");
+        }
+
+        // cache to avoid needless object churn
+        if (cachedCredentials == null) {
+            cachedCredentials = AwsBasicCredentials.create(awsAccessKeyId, awsSecretKey);
+        }
+        return cachedCredentials;
     }
 
     @Override
