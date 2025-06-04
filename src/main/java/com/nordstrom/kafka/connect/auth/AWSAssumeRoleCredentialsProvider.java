@@ -13,7 +13,7 @@ import org.apache.kafka.common.Configurable;
 import java.net.URI;
 import java.util.Map;
 
-public class AWSAssumeRoleCredentialsProvider implements AwsCredentialsProvider, Configurable {
+public class AWSAssumeRoleCredentialsProvider implements AwsCredentialsProvider, Configurable, AutoCloseable {
   public static final String EXTERNAL_ID_CONFIG = "external.id";
   public static final String ROLE_ARN_CONFIG = "role.arn";
   public static final String SESSION_NAME_CONFIG = "session.name";
@@ -57,7 +57,17 @@ public class AWSAssumeRoleCredentialsProvider implements AwsCredentialsProvider,
 
   @Override
   public AwsCredentials resolveCredentials() {
+    if (credentialsProvider == null) {
+      throw new IllegalStateException("Credentials Provider not configured – need to call configure() first.");
+    }
     return credentialsProvider.resolveCredentials();
+  }
+
+  @Override
+  public void close() {
+    if (credentialsProvider != null) {
+      credentialsProvider.close();
+    }
   }
 
   private String getOptionalField(final Map<String, ?> map, final String fieldName) {
