@@ -185,38 +185,40 @@ public class SqsClient {
   @SuppressWarnings("unchecked")
   public AwsCredentialsProvider getCredentialsProvider(Map<String, ?> configs) {
 
-    try {
-      Object providerField = configs.get("class");
-      String providerClass = SqsConnectorConfigKeys.CREDENTIALS_PROVIDER_CLASS_DEFAULT.getValue();
-      if (null != providerField) {
-        providerClass = providerField.toString();
-      }
-      AwsCredentialsProvider provider = ((Class<? extends AwsCredentialsProvider>)
-              getClass(providerClass)).getDeclaredConstructor().newInstance();
+      String providerClass = null;
+      try {
+          Object providerField = configs.get("class");
+          providerClass = SqsConnectorConfigKeys.CREDENTIALS_PROVIDER_CLASS_DEFAULT.getValue();
+          if (null != providerField) {
+              providerClass = providerField.toString();
+          }
+          AwsCredentialsProvider provider = ((Class<? extends AwsCredentialsProvider>)
+                  getClass(providerClass)).getDeclaredConstructor().newInstance();
 
-      if (provider instanceof Configurable) {
-        ((Configurable) provider).configure(configs);
-      }
+          if (provider instanceof Configurable) {
+              ((Configurable) provider).configure(configs);
+          }
 
-      return provider;
-    } catch (IllegalAccessException | InstantiationException e) {
-      throw new ConnectException(
-              "Invalid class for: " + SqsConnectorConfigKeys.CREDENTIALS_PROVIDER_CLASS_CONFIG,
-              e
-      );
-    } catch (InvocationTargetException | NoSuchMethodException e) {
-        throw new RuntimeException(e);
-    }
+          return provider;
+      } catch (IllegalAccessException | InstantiationException | InvocationTargetException | NoSuchMethodException e) {
+          throw new ConnectException(
+                  "Invalid class for: " + SqsConnectorConfigKeys.CREDENTIALS_PROVIDER_CLASS_CONFIG,
+                  e
+          );
+      } catch (ClassNotFoundException e) {
+          throw new ConnectException(
+                  "Provider class not found: " + providerClass, e
+          );
+      } catch (Exception e) {
+        throw new ConnectException(
+                "Unknown exception occurred while building SQS client", e
+        );
+      }
   }
 
-  public Class<?> getClass(String className) {
+  public Class<?> getClass(String className) throws ClassNotFoundException {
     log.warn(".get-class:class={}", className);
-    try {
-      return Class.forName(className);
-    } catch (ClassNotFoundException e) {
-      log.error("Provider class not found: {}", e);
-    }
-    return null;
+    return Class.forName(className);
   }
 
 }
