@@ -21,12 +21,14 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 
+import com.nordstrom.kafka.connect.utils.StringUtils;
 import org.apache.kafka.common.Configurable;
 import org.apache.kafka.connect.errors.ConnectException;
 
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.endpoints.EndpointProvider;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.sqs.SqsClientBuilder;
 import software.amazon.awssdk.services.sqs.endpoints.SqsEndpointProvider;
 import software.amazon.awssdk.services.sqs.model.*;
 import software.amazon.awssdk.services.sts.StsClient;
@@ -50,11 +52,20 @@ public class SqsClient {
       log.error("Problem initializing provider", e);
     }
 
-    client = software.amazon.awssdk.services.sqs.SqsClient.builder()
-            .region(Region.of(config.getRegion()))
-            .endpointOverride(URI.create(config.getEndpointUrl()))
-            .credentialsProvider(provider)
-            .build();
+    SqsClientBuilder clientBuilder = software.amazon.awssdk.services.sqs.SqsClient.builder()
+            .region(Region.of(config.getRegion()));
+
+    // Only set endpoint override if endpoint URL is not null or empty
+    if (!StringUtils.isBlank(config.getEndpointUrl())) {
+      clientBuilder.endpointOverride(URI.create(config.getEndpointUrl()));
+    }
+
+    // Only set credentials provider if it's not null
+    if (provider != null) {
+      clientBuilder.credentialsProvider(provider);
+    }
+
+    client = clientBuilder.build();
   }
 
   /**
