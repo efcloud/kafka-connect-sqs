@@ -18,20 +18,15 @@ public class AWSAssumeRoleCredentialsProvider implements AwsCredentialsProvider,
   public static final String ROLE_ARN_CONFIG = "role.arn";
   public static final String SESSION_NAME_CONFIG = "session.name";
 
-  private String externalId;
-  private String roleArn;
-  private String sessionName;
-  private String region;
-  private String endpointUrl;
   private StsAssumeRoleCredentialsProvider credentialsProvider;
 
   @Override
   public void configure(Map<String, ?> map) {
-    externalId = getOptionalField(map, EXTERNAL_ID_CONFIG);
-    roleArn = getRequiredField(map, ROLE_ARN_CONFIG);
-    sessionName = getRequiredField(map, SESSION_NAME_CONFIG);
-    region = getRequiredField(map, SqsConnectorConfigKeys.SQS_REGION.getValue());
-    endpointUrl = getOptionalField(map, SqsConnectorConfigKeys.SQS_ENDPOINT_URL.getValue());
+    String externalId = getOptionalField(map, EXTERNAL_ID_CONFIG);
+    String roleArn = getRequiredField(map, ROLE_ARN_CONFIG);
+    String sessionName = getRequiredField(map, SESSION_NAME_CONFIG);
+    String region = getRequiredField(map, SqsConnectorConfigKeys.SQS_REGION.getValue());
+    String endpointUrl = getOptionalField(map, SqsConnectorConfigKeys.SQS_ENDPOINT_URL.getValue());
 
     StsClient stsClient = StringUtils.isBlank(endpointUrl)
             ? StsClient.builder().region(Region.of(region)).build()
