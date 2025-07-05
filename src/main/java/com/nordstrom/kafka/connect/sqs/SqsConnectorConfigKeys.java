@@ -37,7 +37,7 @@ public enum SqsConnectorConfigKeys {
   CREDENTIALS_PROVIDER_CLASS_CONFIG("sqs.credentials.provider.class"),
   CREDENTIALS_PROVIDER_ACCESS_KEY_ID("sqs.credentials.provider.accessKeyId"),
   CREDENTIALS_PROVIDER_SECRET_ACCESS_KEY("sqs.credentials.provider.secretKey"),
-  CREDENTIALS_PROVIDER_CLASS_DEFAULT("com.amazonaws.auth.DefaultAWSCredentialsProviderChain"),
+  CREDENTIALS_PROVIDER_CLASS_DEFAULT("software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider"),
   CREDENTIALS_PROVIDER_CONFIG_PREFIX("sqs.credentials.provider."),  //NB: trailing '.'
   SQS_MESSAGE_ID("sqs.message.id"),
   SQS_MESSAGE_RECEIPT_HANDLE("sqs.message.receipt-handle");
