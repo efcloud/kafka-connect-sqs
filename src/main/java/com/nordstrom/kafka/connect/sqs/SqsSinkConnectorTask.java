@@ -27,8 +27,6 @@ import com.nordstrom.kafka.connect.utils.ParseException;
 import org.apache.kafka.common.errors.RetriableException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nordstrom.kafka.connect.utils.ObjectMapperProvider;
-import com.nordstrom.kafka.connect.sqs.SqsSinkConnectorConfig;
-import com.nordstrom.kafka.connect.sqs.SqsSinkConnector;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.header.Header;
 import org.apache.kafka.connect.header.Headers;
