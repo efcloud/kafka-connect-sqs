@@ -47,6 +47,7 @@ public class AWSAssumeRoleCredentialsProvider implements AwsCredentialsProvider,
     credentialsProvider = StsAssumeRoleCredentialsProvider.builder()
             .refreshRequest(roleRequestBuilder.build())
             .stsClient(stsClient)
+            .asyncCredentialUpdateEnabled(true)
             .build();
   }
 

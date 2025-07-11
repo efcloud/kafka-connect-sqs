@@ -66,12 +66,21 @@ public class SqsSinkConnectorTask extends SinkTask {
     log.info( "task.start" ) ;
     Guard.verifyNotNull( props, "Task properties" ) ;
 
-    config = new SqsSinkConnectorConfig( props ) ;
-    client = new SqsClient(config) ;
-    objectMapper = ObjectMapperProvider.getObjectMapper(config.getTimestampFormat());
+    try {
+      config = new SqsSinkConnectorConfig( props ) ;
+      client = new SqsClient(config) ;
+      objectMapper = ObjectMapperProvider.getObjectMapper(config.getTimestampFormat());
 
-    log.info( "task.start:OK, sqs.queue.url={}, topics={}", config.getQueueUrl(), config.getTopics() ) ;
+      log.info( "task.start:OK, sqs.queue.url={}, topics={}", config.getQueueUrl(), config.getTopics() ) ;
+    } catch (NoClassDefFoundError e) {
+      log.error("Failed to initialize SqsSinkConnectorConfig. Missing class: {}", e.getMessage(), e);
+      throw new RuntimeException("Configuration initialization failed due to missing dependencies", e);
+    } catch (Exception e) {
+      log.error("Failed to initialize connector task", e);
+      throw e;
   }
+
+}
 
   /*
    * (non-Javadoc)
