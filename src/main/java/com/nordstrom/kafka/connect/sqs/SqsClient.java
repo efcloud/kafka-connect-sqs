@@ -50,6 +50,7 @@ public class SqsClient {
       provider = getCredentialsProvider(credentialProviderConfigs);
     } catch ( Exception e ) {
       log.error("Problem initializing provider", e);
+      throw e;
     }
 
     SqsClientBuilder clientBuilder = software.amazon.awssdk.services.sqs.SqsClient.builder()

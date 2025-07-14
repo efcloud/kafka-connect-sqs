@@ -70,7 +70,7 @@ public class SqsSourceConnectorTask extends SourceTask {
 
             log.info( "task.start:OK, sqs.queue.url={}, topics={}", config.getQueueUrl(), config.getTopics() ) ;
         } catch (NoClassDefFoundError e) {
-            log.error("Failed to initialize SqsSinkConnectorConfig. Missing class: {}", e.getMessage(), e);
+            log.error("Failed to initialize SqsSourceConnectorConfig. Missing class: {}", e.getMessage(), e);
             throw new RuntimeException("Configuration initialization failed due to missing dependencies", e);
         } catch (Exception e) {
             log.error("Failed to initialize connector task", e);
