@@ -120,7 +120,7 @@ the SQS queue.
 
 ## AWS authentication
 
-By default, the connector uses the AWS SDK `DefaultAWSCredentialsProviderChain` to determine the
+By default, the connector uses the AWS SDK `DefaultCredentialsProvider` to determine the
 identity of the connector. This works well in simple scenarios when the connector gains privileges
 granted to the Kafka Connect worker (i.e., environment variables, EC2 instance metadata, etc.)
 
