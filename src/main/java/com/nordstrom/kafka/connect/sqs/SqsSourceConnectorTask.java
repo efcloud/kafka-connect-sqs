@@ -16,30 +16,27 @@
 
 package com.nordstrom.kafka.connect.sqs;
 
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
-import java.util.*;
-import java.util.stream.Collectors;
-
-import com.amazonaws.services.sqs.model.MessageAttributeValue;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nordstrom.kafka.connect.About;
 import com.nordstrom.kafka.connect.utils.KafkaJsonToStruct;
 import com.nordstrom.kafka.connect.utils.ParseException;
 import com.nordstrom.kafka.connect.utils.StringUtils;
-import org.apache.kafka.connect.data.*;
+import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.SchemaAndValue;
+import org.apache.kafka.connect.data.SchemaBuilder;
+import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.header.ConnectHeaders;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.apache.kafka.connect.source.SourceTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.services.sqs.model.Message;
+import software.amazon.awssdk.services.sqs.model.MessageAttributeValue;
 
-import com.amazonaws.services.sqs.model.Message;
-import com.nordstrom.kafka.connect.About;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class SqsSourceConnectorTask extends SourceTask {
     private final Logger log = LoggerFactory.getLogger(this.getClass());
@@ -67,14 +64,22 @@ public class SqsSourceConnectorTask extends SourceTask {
         log.info("task.start");
         Guard.verifyNotNull(props, "Task properties");
 
-        config = new SqsSourceConnectorConfig(props);
-        client = new SqsClient(config);
+        try {
+            config = new SqsSourceConnectorConfig(props);
+            client = new SqsClient(config) ;
 
-        log.info("task.start.OK, sqs.queue.url={}, topics={}", config.getQueueUrl(), config.getTopics());
+            log.info( "task.start:OK, sqs.queue.url={}, topics={}", config.getQueueUrl(), config.getTopics() ) ;
+        } catch (NoClassDefFoundError e) {
+            log.error("Failed to initialize SqsSourceConnectorConfig. Missing class: {}", e.getMessage(), e);
+            throw new RuntimeException("Configuration initialization failed due to missing dependencies", e);
+        } catch (Exception e) {
+            log.error("Failed to initialize connector task", e);
+            throw e;
+        }
     }
 
     private String getPartitionKey(Message message) {
-        String messageId = message.getMessageId();
+        String messageId = message.messageId();
         if (!config.getMessageAttributesEnabled()) {
             return messageId;
         }
@@ -84,16 +89,16 @@ public class SqsSourceConnectorTask extends SourceTask {
         }
 
         // search for the String message attribute with the same name as the configured partition key
-        Map<String, MessageAttributeValue> attributes = message.getMessageAttributes();
+        Map<String, MessageAttributeValue> attributes = message.messageAttributes();
         for (String attributeKey : attributes.keySet()) {
             if (!Objects.equals(attributeKey, messageAttributePartitionKey)) {
                 continue;
             }
             MessageAttributeValue attrValue = attributes.get(attributeKey);
-            if (!attrValue.getDataType().equals("String")) {
+            if (!attrValue.dataType().equals("String")) {
                 continue;
             }
-            return attrValue.getStringValue();
+            return attrValue.stringValue();
         }
         return messageId;
     }
@@ -118,34 +123,40 @@ public class SqsSourceConnectorTask extends SourceTask {
                 config.getWaitTimeSeconds(),
                 config.getMessageAttributesEnabled(),
                 config.getMessageAttributesList());
-        log.debug(".poll:url={}, max={}, wait={}, size={}", config.getQueueUrl(), config.getMaxMessages(),
-                config.getWaitTimeSeconds(), messages.size());
+
+        log.debug(".poll:url={}, max={}, wait={}, size={}",
+                config.getQueueUrl(),
+                config.getMaxMessages(),
+                config.getWaitTimeSeconds(),
+                messages.size());
 
         // Create a SourceRecord for each message in the queue.
         return messages.stream().map(message -> {
-
-            Map<String, String> sourcePartition = Collections.singletonMap(SqsConnectorConfigKeys.SQS_QUEUE_URL.getValue(),
+            Map<String, String> sourcePartition = Collections.singletonMap(
+                    SqsConnectorConfigKeys.SQS_QUEUE_URL.getValue(),
                     config.getQueueUrl());
+
             Map<String, String> sourceOffset = new HashMap<>();
-            // Save the message id and receipt-handle. receipt-handle is needed to delete
-            // the message once the record is committed.
-            sourceOffset.put(SqsConnectorConfigKeys.SQS_MESSAGE_ID.getValue(), message.getMessageId());
-            sourceOffset.put(SqsConnectorConfigKeys.SQS_MESSAGE_RECEIPT_HANDLE.getValue(), message.getReceiptHandle());
+            sourceOffset.put(SqsConnectorConfigKeys.SQS_MESSAGE_ID.getValue(), message.messageId());
+            sourceOffset.put(SqsConnectorConfigKeys.SQS_MESSAGE_RECEIPT_HANDLE.getValue(), message.receiptHandle());
+
             log.trace(".poll:source-partition={}", sourcePartition);
             log.trace(".poll:source-offset={}", sourceOffset);
 
-            final String body = message.getBody();
+            final String body = message.body();
             final String key = getPartitionKey(message);
             final String topic = config.getTopics();
 
             final ConnectHeaders headers = new ConnectHeaders();
             if (config.getMessageAttributesEnabled()) {
-                Map<String, MessageAttributeValue> attributes = message.getMessageAttributes();
+                Map<String, MessageAttributeValue> attributes = message.messageAttributes();
                 // sqs api should return only the fields specified in the list
                 for (String attributeKey : attributes.keySet()) {
                     MessageAttributeValue attrValue = attributes.get(attributeKey);
-                    if (attrValue.getDataType().equals("String")) {
-                        SchemaAndValue schemaAndValue = new SchemaAndValue(Schema.STRING_SCHEMA, attrValue.getStringValue());
+                    if (attrValue.dataType().equals("String")) {
+                        SchemaAndValue schemaAndValue = new SchemaAndValue(
+                                Schema.STRING_SCHEMA,
+                                attrValue.stringValue());
                         headers.add(attributeKey, schemaAndValue);
                     }
                 }
@@ -154,19 +165,26 @@ public class SqsSourceConnectorTask extends SourceTask {
             if (config.getTransformToJson()) {
                 return parseJSON(body, sourcePartition, sourceOffset, topic, key, headers);
             } else {
-                return new SourceRecord(sourcePartition, sourceOffset, topic, null, Schema.STRING_SCHEMA, key, Schema.STRING_SCHEMA,
-                        body, null, headers);
+                return new SourceRecord(
+                        sourcePartition,
+                        sourceOffset,
+                        topic,
+                        null,
+                        Schema.STRING_SCHEMA,
+                        key,
+                        Schema.STRING_SCHEMA,
+                        body,
+                        null,
+                        headers);
             }
-
-
         }).collect(Collectors.toList());
     }
 
     /**
      * Parse a JSON string into a Structured SourceRecord. This is specially useful when the `value.converter` is set to other than String, e.g.: ProtobufConverter.
-     * Without this parsing, a converter like ProtobufConvert won't be able to understand the JSON string because it's schema is "String".
+     * Without this parsing, a converter like ProtobufConvert won't be able to understand the JSON string because its schema is "String".
      * This parsing is also trying to convert String datetime to Timestamps, so they will be correctly interpreted by the converters.
-     * Numeric Timestamps can not be automatically converted to Timestamps because they are no different from any other number, SMT transformations can be used for that.
+     * Numeric Timestamps cannot be automatically converted to Timestamps because they are no different from any other number, SMT transformations can be used for that.
      *
      * @return SourceRecord with the proper value schema.
      */

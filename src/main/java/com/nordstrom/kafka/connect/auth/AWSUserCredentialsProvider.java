@@ -1,32 +1,41 @@
 package com.nordstrom.kafka.connect.auth;
 
-import com.amazonaws.auth.AWSCredentials;
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.auth.BasicAWSCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import org.apache.kafka.common.Configurable;
 
 import java.util.Map;
 
-public class AWSUserCredentialsProvider implements AWSCredentialsProvider, Configurable {
+public class AWSUserCredentialsProvider implements AwsCredentialsProvider, Configurable {
     private static final String AWS_ACCESS_KEY_ID = "accessKeyId";
     private static final String AWS_SECRET_ACCESS_KEY = "secretKey";
 
     private String awsAccessKeyId;
     private String awsSecretKey;
 
-    @Override
-    public AWSCredentials getCredentials() {
-        return new BasicAWSCredentials(awsAccessKeyId, awsSecretKey);
-    }
+    private volatile AwsCredentials cachedCredentials;
 
     @Override
-    public void refresh() { }
+    public AwsCredentials resolveCredentials() {
+        if (awsAccessKeyId == null || awsSecretKey == null) {
+            throw new IllegalStateException("AWSUserCredentialsProvider has not been configured – call configure() " +
+                    "first. AWS Access Key ID and Secret Key must be set. ");
+        }
+
+        // cache to avoid needless object churn
+        if (cachedCredentials == null) {
+            cachedCredentials = AwsBasicCredentials.create(awsAccessKeyId, awsSecretKey);
+        }
+        return cachedCredentials;
+    }
 
     @Override
     public void configure(Map<String, ?> map) {
         awsAccessKeyId = getRequiredField(map, AWS_ACCESS_KEY_ID);
         awsSecretKey = getRequiredField(map, AWS_SECRET_ACCESS_KEY);
     }
+
 
     private String getRequiredField(final Map<String, ?> map, final String fieldName) {
         final Object field = map.get(fieldName);

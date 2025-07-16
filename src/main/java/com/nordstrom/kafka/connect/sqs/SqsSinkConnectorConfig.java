@@ -41,7 +41,7 @@ public class SqsSinkConnectorConfig extends SqsConnectorConfig {
           SqsConnectorConfigKeys.CREDENTIALS_PROVIDER_CLASS_DEFAULT.getValue(),
           new CredentialsProviderValidator(),
           Importance.LOW,
-          "Credentials provider or provider chain to use for authentication to AWS. By default the connector uses 'DefaultAWSCredentialsProviderChain'.",
+          "Credentials provider or provider chain to use for authentication to AWS. By default the connector uses 'DefaultCredentialsProvider'.",
           "SQS",
           0,
           ConfigDef.Width.LONG,

@@ -1,61 +1,68 @@
 package com.nordstrom.kafka.connect.auth;
 
-import com.amazonaws.auth.AWSCredentials;
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
-import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
-import com.amazonaws.services.securitytoken.AWSSecurityTokenServiceClientBuilder;
+import software.amazon.awssdk.auth.credentials.AwsCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.services.sts.StsClient;
+import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
+import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
 import com.nordstrom.kafka.connect.sqs.SqsConnectorConfigKeys;
 import com.nordstrom.kafka.connect.utils.StringUtils;
 import org.apache.kafka.common.Configurable;
-//import org.slf4j.Logger;
-//import org.slf4j.LoggerFactory;
 
+import java.net.URI;
 import java.util.Map;
 
-public class AWSAssumeRoleCredentialsProvider implements AWSCredentialsProvider, Configurable {
-  //NB: uncomment slf4j imports and field declaration to enable logging.
-//  private static final Logger log = LoggerFactory.getLogger(AWSAssumeRoleCredentialsProvider.class);
-
+public class AWSAssumeRoleCredentialsProvider implements AwsCredentialsProvider, Configurable, AutoCloseable {
   public static final String EXTERNAL_ID_CONFIG = "external.id";
   public static final String ROLE_ARN_CONFIG = "role.arn";
   public static final String SESSION_NAME_CONFIG = "session.name";
 
-  private String externalId;
-  private String roleArn;
-  private String sessionName;
-  private String region;
-  private String endpointUrl;
+  private StsAssumeRoleCredentialsProvider credentialsProvider;
+
   @Override
   public void configure(Map<String, ?> map) {
-    externalId = getOptionalField(map, EXTERNAL_ID_CONFIG);
-    roleArn = getRequiredField(map, ROLE_ARN_CONFIG);
-    sessionName = getRequiredField(map, SESSION_NAME_CONFIG);
-    region = getRequiredField(map, SqsConnectorConfigKeys.SQS_REGION.getValue());
-    endpointUrl = getOptionalField(map, SqsConnectorConfigKeys.SQS_ENDPOINT_URL.getValue());
+    String externalId = getOptionalField(map, EXTERNAL_ID_CONFIG);
+    String roleArn = getRequiredField(map, ROLE_ARN_CONFIG);
+    String sessionName = getRequiredField(map, SESSION_NAME_CONFIG);
+    String region = getRequiredField(map, SqsConnectorConfigKeys.SQS_REGION.getValue());
+    String endpointUrl = getOptionalField(map, SqsConnectorConfigKeys.SQS_ENDPOINT_URL.getValue());
+
+    StsClient stsClient = StringUtils.isBlank(endpointUrl)
+            ? StsClient.builder().region(Region.of(region)).build()
+            : StsClient.builder()
+            .endpointOverride(URI.create(endpointUrl))
+            .region(Region.of(region))
+            .build();
+
+    AssumeRoleRequest.Builder roleRequestBuilder = AssumeRoleRequest.builder()
+            .roleArn(roleArn)
+            .roleSessionName(sessionName)
+            .durationSeconds(900);
+
+    if (externalId != null) {
+      roleRequestBuilder.externalId(externalId);
+    }
+
+    credentialsProvider = StsAssumeRoleCredentialsProvider.builder()
+            .refreshRequest(roleRequestBuilder.build())
+            .stsClient(stsClient)
+            .build();
   }
 
   @Override
-  public AWSCredentials getCredentials() {
-    AWSSecurityTokenServiceClientBuilder clientBuilder = null;
-    if(StringUtils.isBlank(endpointUrl))
-      clientBuilder = AWSSecurityTokenServiceClientBuilder.standard()
-            .withRegion(region);
-    else
-      clientBuilder = AWSSecurityTokenServiceClientBuilder.standard()
-              .withEndpointConfiguration(new EndpointConfiguration(endpointUrl, region));
-
-    AWSCredentialsProvider provider = new STSAssumeRoleSessionCredentialsProvider.Builder(roleArn, sessionName)
-        .withStsClient(clientBuilder.build())
-        .withExternalId(externalId)
-        .build();
-
-    return provider.getCredentials();
+  public AwsCredentials resolveCredentials() {
+    if (credentialsProvider == null) {
+      throw new IllegalStateException("Credentials Provider not configured – need to call configure() first.");
+    }
+    return credentialsProvider.resolveCredentials();
   }
 
   @Override
-  public void refresh() {
-    //Nothing to do really, since we are assuming a role.
+  public void close() {
+    if (credentialsProvider != null) {
+      credentialsProvider.close();
+    }
   }
 
   private String getOptionalField(final Map<String, ?> map, final String fieldName) {
