@@ -24,7 +24,7 @@ import java.util.Map ;
 
 import software.amazon.awssdk.services.sqs.model.MessageAttributeValue;
 import com.nordstrom.kafka.connect.utils.ParseException;
-import org.apache.kafka.common.errors.RetriableException;
+import org.apache.kafka.connect.errors.RetriableException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nordstrom.kafka.connect.utils.ObjectMapperProvider;
 import org.apache.kafka.connect.data.Schema;
@@ -140,15 +140,25 @@ public class SqsSinkConnectorTask extends SinkTask {
       }
 
       if ( Facility.isNotNullNorEmpty( body ) ) {
+        final String sid ;
         try {
-          final String sid = client.send( config.getQueueUrl(), body, gid, mid, messageAttributes ) ;
-
-          log.debug( ".put.OK:message-id={}, queue.url={}, sqs-group-id={}, sqs-message-id={}", gid, mid,
-              config.getQueueUrl(), sid ) ;
-        } catch ( final RetriableException e ) {
-          log.error( "An Exception occurred while sending message {} to target url {}:", mid, config.getQueueUrl(),
-              e ) ;
+          sid = client.send( config.getQueueUrl(), body, gid, mid, messageAttributes ) ;
+        } catch ( final RuntimeException e ) {
+          if ( !SqsErrors.isRetriable( e ) ) {
+            throw e ;
+          }
+          // Kafka Connect redelivers the whole batch after the timeout, so records of this batch
+          // that were already sent go out again; FIFO queues drop them via the deduplication id.
+          log.warn( "Transient error sending message {} to {}, retrying the batch in {} ms", mid,
+              config.getQueueUrl(), SqsErrors.RETRY_BACKOFF_MS, e ) ;
+          if ( context != null ) {
+            context.timeout( SqsErrors.RETRY_BACKOFF_MS ) ;
+          }
+          throw new RetriableException( e ) ;
         }
+
+        log.debug( ".put.OK:message-id={}, queue.url={}, sqs-group-id={}, sqs-message-id={}", gid, mid,
+            config.getQueueUrl(), sid ) ;
       } else {
         log.warn( "Skipping empty message: key={}", key ) ;
       }
