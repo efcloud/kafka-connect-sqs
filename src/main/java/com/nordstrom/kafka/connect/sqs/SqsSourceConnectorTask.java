@@ -27,6 +27,7 @@ import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.header.ConnectHeaders;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.apache.kafka.connect.source.SourceTask;
@@ -41,8 +42,9 @@ import java.util.stream.Collectors;
 public class SqsSourceConnectorTask extends SourceTask {
     private final Logger log = LoggerFactory.getLogger(this.getClass());
 
-    private SqsClient client;
-    private SqsSourceConnectorConfig config;
+    SqsClient client;
+    SqsSourceConnectorConfig config;
+    long retryBackoffMs = SqsErrors.RETRY_BACKOFF_MS;
 
     /*
      * (non-Javadoc)
@@ -117,12 +119,24 @@ public class SqsSourceConnectorTask extends SourceTask {
         }
 
         // Read messages from the queue.
-        List<Message> messages = client.receive(
-                config.getQueueUrl(),
-                config.getMaxMessages(),
-                config.getWaitTimeSeconds(),
-                config.getMessageAttributesEnabled(),
-                config.getMessageAttributesList());
+        List<Message> messages;
+        try {
+            messages = client.receive(
+                    config.getQueueUrl(),
+                    config.getMaxMessages(),
+                    config.getWaitTimeSeconds(),
+                    config.getMessageAttributesEnabled(),
+                    config.getMessageAttributesList());
+        } catch (RuntimeException e) {
+            if (!SqsErrors.isRetriable(e)) {
+                throw e;
+            }
+            // Kafka Connect calls poll() again straight away, so back off here to avoid a hot loop.
+            log.warn("Transient error receiving from {}, retrying in {} ms",
+                    config.getQueueUrl(), retryBackoffMs, e);
+            Thread.sleep(retryBackoffMs);
+            throw new RetriableException(e);
+        }
 
         log.debug(".poll:url={}, max={}, wait={}, size={}",
                 config.getQueueUrl(),
